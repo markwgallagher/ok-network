@@ -53,6 +53,12 @@ function checkTLS(host) {
       // Extract issuer (publisher)
       const issuer = cert.issuer ? cert.issuer.O || cert.issuer.CN || 'Unknown' : 'Unknown';
       
+      // Extract CN from certificate
+      const certCN = cert.subject ? cert.subject.CN : null;
+      
+      // Determine if this hostname is the CN or a SAN
+      const isCN = certCN && certCN === host;
+      
       // Extract SANs - use regex to properly extract all DNS entries
       let sans = [];
       if (cert.subjectAltName) {
@@ -61,9 +67,9 @@ function checkTLS(host) {
       }
       
       socket.end();
-      resolve({ host, tlsValid: !!cert, daysUntilExpiration, issuer, sans });
+      resolve({ host, tlsValid: !!cert, daysUntilExpiration, issuer, sans, isCN });
     });
-    socket.on('error', () => resolve({ host, tlsValid: false, daysUntilExpiration: null, issuer: 'Unknown', sans: [] }));
+    socket.on('error', () => resolve({ host, tlsValid: false, daysUntilExpiration: null, issuer: 'Unknown', sans: [], isCN: true }));
   });
 }
 
@@ -71,7 +77,11 @@ async function checkHost(host) {
   const start = Date.now();
   const tlsInfo = await checkTLS(host);
   try {
-    await axios.get(`https://${host}`, { timeout: 3000 });
+    await axios.get(`https://${host}`, { 
+      timeout: 3000,
+      validateStatus: () => true, // Accept any status code as a successful response
+      httpsAgent: new https.Agent({ rejectUnauthorized: false }) // Allow invalid certificates
+    });
     const rtt = Date.now() - start;
     return { host, ...tlsInfo, rtt, up: true };
   } catch {
@@ -85,26 +95,32 @@ app.post('/check', async (req, res) => {
   const hosts = await getHostnames(domain);
   const results = await Promise.all(hosts.map(checkHost));
   
-  // Collect unique SANs from all certificates
+  // Create a set of hostnames already tested as primary CNs
+  const primaryHostnames = new Set(hosts);
+  
+  // Collect unique SANs that are NOT already in the primary results
   const sansSet = new Set();
   const sanToCertInfo = new Map(); // Map to track which cert info belongs to each SAN
   
   results.forEach(result => {
     if (result.sans && result.sans.length > 0) {
       result.sans.forEach(san => {
-        sansSet.add(san);
-        if (!sanToCertInfo.has(san)) {
-          sanToCertInfo.set(san, {
-            issuer: result.issuer,
-            daysUntilExpiration: result.daysUntilExpiration,
-            tlsValid: result.tlsValid
-          });
+        // Only add SANs that aren't already tested as primary CNs
+        if (!primaryHostnames.has(san)) {
+          sansSet.add(san);
+          if (!sanToCertInfo.has(san)) {
+            sanToCertInfo.set(san, {
+              issuer: result.issuer,
+              daysUntilExpiration: result.daysUntilExpiration,
+              tlsValid: result.tlsValid
+            });
+          }
         }
       });
     }
   });
   
-  // Test each unique SAN
+  // Test each unique SAN that wasn't already tested as a primary CN
   const sanResults = [];
   for (const san of sansSet) {
     const start = Date.now();
@@ -130,8 +146,8 @@ app.post('/check', async (req, res) => {
     });
   }
   
-  // Combine results and sort - clear SANs from primary results since we're testing them separately
-  const allResults = results.map(r => ({ ...r, isSAN: false, sans: [] })).concat(sanResults);
+  // Combine results and sort - mark each result as CN or SAN based on actual certificate
+  const allResults = results.map(r => ({ ...r, sans: [], isSAN: !r.isCN }));
   res.json(allResults);
 });
 
