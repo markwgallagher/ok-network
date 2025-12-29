@@ -30,7 +30,18 @@ function checkTLS(host) {
     const socket = tls.connect(443, host, { servername: host, rejectUnauthorized: false }, () => {
       const cert = socket.getPeerCertificate();
       const now = new Date();
-      const expiresSoon = cert.valid_to ? (new Date(cert.valid_to) - now) < 30*24*60*60*1000 : false;
+      
+      // Calculate days until expiration
+      let daysUntilExpiration = null;
+      if (cert.valid_to) {
+        const expiryDate = new Date(cert.valid_to);
+        const isExpired = expiryDate <= now;
+        if (isExpired) {
+          daysUntilExpiration = -1; // Negative indicates expired
+        } else {
+          daysUntilExpiration = Math.floor((expiryDate - now) / (24 * 60 * 60 * 1000));
+        }
+      }
       
       // Extract issuer (publisher)
       const issuer = cert.issuer ? cert.issuer.O || cert.issuer.CN || 'Unknown' : 'Unknown';
@@ -42,9 +53,9 @@ function checkTLS(host) {
       }
       
       socket.end();
-      resolve({ host, tlsValid: !!cert, expiresSoon, issuer, sans });
+      resolve({ host, tlsValid: !!cert, daysUntilExpiration, issuer, sans });
     });
-    socket.on('error', () => resolve({ host, tlsValid: false, expiresSoon: false, issuer: 'Unknown', sans: [] }));
+    socket.on('error', () => resolve({ host, tlsValid: false, daysUntilExpiration: null, issuer: 'Unknown', sans: [] }));
   });
 }
 

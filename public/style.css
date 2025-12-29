@@ -9,3 +9,6 @@ tr:nth-child(even){background-color: #f2f2f2;}
 .down { background-color: #ffcdd2; }
 .warn { background-color: #fff9c4; }
 td:first-child { text-align: left; }
+.valid { background-color: #c8e6c9; color: #2e7d32; font-weight: bold; }
+.expiring-soon { background-color: #ffe082; color: #f57f17; font-weight: bold; }
+.expired { background-color: #ffcdd2; color: #c62828; font-weight: bold; }

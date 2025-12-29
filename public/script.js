@@ -13,7 +13,23 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
   const data = await res.json();
   tbody.innerHTML = '';
   data.forEach(host => {
-    const baseRowClass = host.up ? (host.expiresSoon ? 'warn' : 'up') : 'down';
+    const baseRowClass = host.up ? 'up' : 'down';
+    
+    // Determine expiration color
+    let expirationDisplay = '-';
+    let expirationClass = '';
+    if (host.daysUntilExpiration !== null) {
+      if (host.daysUntilExpiration === -1) {
+        expirationDisplay = 'EXPIRED';
+        expirationClass = 'expired';
+      } else if (host.daysUntilExpiration < 30) {
+        expirationDisplay = `${host.daysUntilExpiration} days`;
+        expirationClass = 'expiring-soon';
+      } else {
+        expirationDisplay = `${host.daysUntilExpiration} days`;
+        expirationClass = 'valid';
+      }
+    }
     
     // First row with the main hostname and info
     const tr = document.createElement('tr');
@@ -22,7 +38,7 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
       <td>${host.host}</td>
       <td>${host.up ? '✅ Up' : '❌ Down'}</td>
       <td>${host.tlsValid ? '✅' : '❌'}</td>
-      <td>${host.expiresSoon ? '⚠️' : ''}</td>
+      <td class="${expirationClass}">${expirationDisplay}</td>
       <td>${host.issuer}</td>
       <td>${host.rtt ?? '-'}</td>
     `;
