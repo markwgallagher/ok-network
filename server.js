@@ -11,7 +11,7 @@ app.use(express.json());
 
 async function getHostnames(domain) {
   try {
-    const res = await axios.get(`https://crt.sh/?q=%25${domain}&output=json`);
+    const res = await axios.get(`https://crt.sh/?q=${domain}&output=json`);
     const hostnames = new Set();
     res.data.forEach(entry => {
       if (entry.not_after && new Date(entry.not_after) > new Date()) {
@@ -31,22 +31,33 @@ function checkTLS(host) {
       const cert = socket.getPeerCertificate();
       const now = new Date();
       const expiresSoon = cert.valid_to ? (new Date(cert.valid_to) - now) < 30*24*60*60*1000 : false;
+      
+      // Extract issuer (publisher)
+      const issuer = cert.issuer ? cert.issuer.O || cert.issuer.CN || 'Unknown' : 'Unknown';
+      
+      // Extract SANs
+      let sans = [];
+      if (cert.subjectAltName) {
+        sans = cert.subjectAltName.split(', ').map(san => san.replace('DNS:', '').trim());
+      }
+      
       socket.end();
-      resolve({ host, tlsValid: !!cert, expiresSoon });
+      resolve({ host, tlsValid: !!cert, expiresSoon, issuer, sans });
     });
-    socket.on('error', () => resolve({ host, tlsValid: false, expiresSoon: false }));
+    socket.on('error', () => resolve({ host, tlsValid: false, expiresSoon: false, issuer: 'Unknown', sans: [] }));
   });
 }
 
 async function checkHost(host) {
   const start = Date.now();
+  const tlsInfo = await checkTLS(host);
   try {
     await axios.get(`https://${host}`, { timeout: 3000 });
     const rtt = Date.now() - start;
-    const tlsInfo = await checkTLS(host);
-    return { ...tlsInfo, rtt, up: true };
+    return { host, ...tlsInfo, rtt, up: true };
   } catch {
-    return { host, up: false, rtt: null, tlsValid: false, expiresSoon: false };
+    const rtt = Date.now() - start;
+    return { host, ...tlsInfo, rtt, up: false };
   }
 }
 
