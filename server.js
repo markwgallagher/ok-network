@@ -15,7 +15,14 @@ async function getHostnames(domain) {
     const hostnames = new Set();
     res.data.forEach(entry => {
       if (entry.not_after && new Date(entry.not_after) > new Date()) {
-        hostnames.add(entry.name_value.replace(/\*\./g, '')); // remove wildcards
+        // Split by newlines or spaces and add each hostname individually
+        const names = entry.name_value.split(/[\s\n]+/);
+        names.forEach(name => {
+          const cleaned = name.replace(/\*\./g, '').trim();
+          if (cleaned) {
+            hostnames.add(cleaned);
+          }
+        });
       }
     });
     return Array.from(hostnames);
