@@ -29,8 +29,8 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
       }
     }
     
-    // Format hostname - add indicator if it's a SAN
-    const hostDisplay = host.isSAN ? `↳ ${host.host}` : host.host;
+    // Format hostname - add designation for CN or SAN
+    const hostDisplay = host.isSAN ? `${host.host} (SAN)` : `${host.host} (CN)`;
     
     const tr = document.createElement('tr');
     tr.innerHTML = `
