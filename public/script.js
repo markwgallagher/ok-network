@@ -13,8 +13,6 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
   const data = await res.json();
   tbody.innerHTML = '';
   data.forEach(host => {
-    const baseRowClass = host.up ? 'up' : 'down';
-    
     // Determine expiration color
     let expirationDisplay = '-';
     let expirationClass = '';
@@ -31,11 +29,12 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
       }
     }
     
-    // First row with the main hostname and info
+    // Format hostname - add indicator if it's a SAN
+    const hostDisplay = host.isSAN ? `↳ ${host.host}` : host.host;
+    
     const tr = document.createElement('tr');
-    tr.className = baseRowClass;
     tr.innerHTML = `
-      <td>${host.host}</td>
+      <td>${hostDisplay}</td>
       <td>${host.up ? '✅ Up' : '❌ Down'}</td>
       <td>${host.tlsValid ? '✅' : '❌'}</td>
       <td class="${expirationClass}">${expirationDisplay}</td>
@@ -43,22 +42,5 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
       <td>${host.rtt ?? '-'}</td>
     `;
     tbody.appendChild(tr);
-    
-    // Add rows for each SAN
-    if (host.sans && host.sans.length > 0) {
-      host.sans.forEach(san => {
-        const sanTr = document.createElement('tr');
-        sanTr.className = baseRowClass;
-        sanTr.innerHTML = `
-          <td style="padding-left: 20px;">↳ ${san}</td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>
-        `;
-        tbody.appendChild(sanTr);
-      });
-    }
   });
 });

@@ -46,10 +46,11 @@ function checkTLS(host) {
       // Extract issuer (publisher)
       const issuer = cert.issuer ? cert.issuer.O || cert.issuer.CN || 'Unknown' : 'Unknown';
       
-      // Extract SANs
+      // Extract SANs - use regex to properly extract all DNS entries
       let sans = [];
       if (cert.subjectAltName) {
-        sans = cert.subjectAltName.split(', ').map(san => san.replace('DNS:', '').trim());
+        const dnsMatches = cert.subjectAltName.match(/DNS:([^\s,]+)/g) || [];
+        sans = dnsMatches.map(entry => entry.replace('DNS:', ''));
       }
       
       socket.end();
@@ -76,7 +77,55 @@ app.post('/check', async (req, res) => {
   const { domain } = req.body;
   const hosts = await getHostnames(domain);
   const results = await Promise.all(hosts.map(checkHost));
-  res.json(results);
+  
+  // Collect unique SANs from all certificates
+  const sansSet = new Set();
+  const sanToCertInfo = new Map(); // Map to track which cert info belongs to each SAN
+  
+  results.forEach(result => {
+    if (result.sans && result.sans.length > 0) {
+      result.sans.forEach(san => {
+        sansSet.add(san);
+        if (!sanToCertInfo.has(san)) {
+          sanToCertInfo.set(san, {
+            issuer: result.issuer,
+            daysUntilExpiration: result.daysUntilExpiration,
+            tlsValid: result.tlsValid
+          });
+        }
+      });
+    }
+  });
+  
+  // Test each unique SAN
+  const sanResults = [];
+  for (const san of sansSet) {
+    const start = Date.now();
+    let up = false;
+    try {
+      await axios.get(`https://${san}`, { timeout: 3000 });
+      up = true;
+    } catch {
+      up = false;
+    }
+    const rtt = Date.now() - start;
+    const certInfo = sanToCertInfo.get(san);
+    
+    sanResults.push({
+      host: san,
+      isSAN: true,
+      up,
+      rtt,
+      tlsValid: certInfo.tlsValid,
+      daysUntilExpiration: certInfo.daysUntilExpiration,
+      issuer: certInfo.issuer,
+      sans: []
+    });
+  }
+  
+  // Combine results and sort - clear SANs from primary results since we're testing them separately
+  const allResults = results.map(r => ({ ...r, isSAN: false, sans: [] })).concat(sanResults);
+  res.json(allResults);
 });
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
