@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="style.css">
+<title>OK Network Checker</title>
+</head>
+<body>
+  <h1>OK Network Host Status Checker</h1>
+  <input type="text" id="domain" placeholder="Enter domain (e.g., darden.com)">
+  <button id="checkBtn">Check Hosts</button>
+  <table id="results">
+    <thead>
+      <tr>
+        <th>Hostname</th>
+        <th>Status</th>
+        <th>TLS Valid</th>
+        <th>Expires Soon</th>
+        <th>RTT (ms)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script src="script.js"></script>
+</body>
+</html>

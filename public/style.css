@@ -1,0 +1,9 @@
+body { font-family: Arial, sans-serif; padding: 20px; }
+input { padding: 5px; font-size: 1em; }
+button { padding: 5px 10px; font-size: 1em; }
+table { margin-top: 20px; border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+tr:nth-child(even){background-color: #f2f2f2;}
+.up { background-color: #c8e6c9; }
+.down { background-color: #ffcdd2; }
+.warn { background-color: #fff9c4; }
