@@ -42,6 +42,13 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
   const response = await res.json();
   const { summary, results } = response;
   
+  // Get DOM elements
+  const metadataDiv = document.getElementById('metadata');
+  const lastSearchDiv = document.getElementById('lastSearch');
+  
+  // Show last search info
+  lastSearchDiv.innerHTML = `<strong>Last Search:</strong> ${summary.domain} - ${summary.totalUnique} FQDNs fetched`;
+  
   // Update status
   statsDiv.innerHTML = `<strong>Status:</strong> Testing ${summary.totalUnique} hostnames...`;
   
@@ -59,6 +66,9 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
   `;
   
   summaryDiv.style.display = 'block';
+  
+  // Enable export button
+  document.getElementById('exportCsv').disabled = false;
   
   // Display results
   tbody.innerHTML = '';

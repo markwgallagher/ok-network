@@ -68,6 +68,15 @@ button:hover {
   border-radius: 4px;
 }
 
+#lastSearch {
+  font-size: 0.95em;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--table-border);
+  color: var(--text-color);
+  opacity: 0.9;
+}
+
 #stats { 
   font-weight: bold; 
   margin-bottom: 10px; 
@@ -95,11 +104,17 @@ button:hover {
   border-radius: 4px; 
   cursor: pointer; 
   padding: 8px 15px; 
-  font-size: 0.9em; 
+  font-size: 0.9em;
+  margin-top: 10px;
 }
 
-#exportCsv:hover { 
+#exportCsv:hover:not(:disabled) { 
   background-color: var(--button-hover-bg); 
+}
+
+#exportCsv:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 table { 
