@@ -46,23 +46,37 @@ app.use(express.json());
 async function getHostnames(domain) {
   try {
     const res = await axios.get(`https://crt.sh/?q=${domain}&output=json`);
-    const hostnames = new Set();
+    const hostnames = new Map(); // Map hostname to cert info
+    const now = new Date();
+    
     res.data.forEach(entry => {
-      if (entry.not_after && new Date(entry.not_after) > new Date()) {
-        // Split by newlines or spaces and add each hostname individually
+      if (entry.not_after && new Date(entry.not_after) > now) {
+        // Calculate days until expiration
+        let daysUntilExpiration = null;
+        const expiryDate = new Date(entry.not_after);
+        if (expiryDate <= now) {
+          daysUntilExpiration = -1;
+        } else {
+          daysUntilExpiration = Math.floor((expiryDate - now) / (24 * 60 * 60 * 1000));
+        }
+        
+        // For now, we'll extract cert info later
         const names = entry.name_value.split(/[\s\n]+/);
         names.forEach(name => {
           const cleaned = name.replace(/\*\./g, '').trim();
-          if (cleaned) {
-            hostnames.add(cleaned);
+          if (cleaned && !hostnames.has(cleaned)) {
+            hostnames.set(cleaned, {
+              daysUntilExpiration,
+              certFromCrtSh: true
+            });
           }
         });
       }
     });
-    return Array.from(hostnames);
+    return hostnames;
   } catch (err) {
     console.error(err);
-    return [];
+    return new Map();
   }
 }
 
@@ -110,9 +124,16 @@ function checkTLS(host) {
   });
 }
 
-async function checkHost(host) {
+async function checkHost(host, crtShInfo = {}) {
   const start = Date.now();
   const tlsInfo = await checkTLS(host);
+  
+  // If direct TLS check failed but we have cert info from crt.sh, use that
+  if (!tlsInfo.tlsValid && crtShInfo.daysUntilExpiration !== undefined) {
+    tlsInfo.tlsValid = true;
+    tlsInfo.daysUntilExpiration = crtShInfo.daysUntilExpiration;
+    tlsInfo.issuer = tlsInfo.issuer === 'Unknown' ? crtShInfo.issuer || 'Unknown' : tlsInfo.issuer;
+  }
   
   // Check if hostname resolves
   let resolved = false;
@@ -146,15 +167,19 @@ async function checkHost(host) {
 
 app.post('/check', async (req, res) => {
   const { domain } = req.body;
-  const hosts = await getHostnames(domain);
-  const results = await Promise.all(hosts.map(checkHost));
+  const hostsMap = await getHostnames(domain);
   
-  // Create a set of hostnames already tested as primary CNs
-  const primaryHostnames = new Set(hosts);
+  // Test each hostname, passing the cert info from crt.sh
+  const results = await Promise.all(
+    Array.from(hostsMap.entries()).map(([host, crtInfo]) => checkHost(host, crtInfo))
+  );
+  
+  // Create a set of hostnames already tested
+  const primaryHostnames = new Set(hostsMap.keys());
   
   // Collect unique SANs that are NOT already in the primary results
   const sansSet = new Set();
-  const sanToCertInfo = new Map(); // Map to track which cert info belongs to each SAN
+  const sanToCertInfo = new Map();
   
   results.forEach(result => {
     if (result.sans && result.sans.length > 0) {
