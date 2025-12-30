@@ -2,9 +2,43 @@ import express from 'express';
 import axios from 'axios';
 import tls from 'tls';
 import https from 'https';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dns from 'dns';
+import { promisify } from 'util';
+
+const dnsLookup = promisify(dns.lookup);
 
 const app = express();
 const PORT = 3000;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const metadataFile = path.join(__dirname, 'metadata.json');
+
+// Load metadata from file
+function loadMetadata() {
+  try {
+    if (fs.existsSync(metadataFile)) {
+      return JSON.parse(fs.readFileSync(metadataFile, 'utf8'));
+    }
+  } catch (err) {
+    console.error('Error loading metadata:', err);
+  }
+  return {};
+}
+
+// Save metadata to file
+function saveMetadata(metadata) {
+  try {
+    fs.writeFileSync(metadataFile, JSON.stringify(metadata, null, 2));
+  } catch (err) {
+    console.error('Error saving metadata:', err);
+  }
+}
+
+let metadata = loadMetadata();
 
 app.use(express.static('public'));
 app.use(express.json());
@@ -76,6 +110,23 @@ function checkTLS(host) {
 async function checkHost(host) {
   const start = Date.now();
   const tlsInfo = await checkTLS(host);
+  
+  // Check if hostname resolves
+  let resolved = false;
+  try {
+    await dnsLookup(host);
+    resolved = true;
+  } catch {
+    resolved = false;
+  }
+  
+  // If not resolved, return early with "not resolved" status
+  if (!resolved) {
+    const rtt = Date.now() - start;
+    return { host, ...tlsInfo, rtt, up: false, resolved: false, status: 'not resolved' };
+  }
+  
+  // Try to reach the host
   try {
     await axios.get(`https://${host}`, { 
       timeout: 3000,
@@ -83,10 +134,10 @@ async function checkHost(host) {
       httpsAgent: new https.Agent({ rejectUnauthorized: false }) // Allow invalid certificates
     });
     const rtt = Date.now() - start;
-    return { host, ...tlsInfo, rtt, up: true };
+    return { host, ...tlsInfo, rtt, up: true, resolved: true, status: 'up' };
   } catch {
     const rtt = Date.now() - start;
-    return { host, ...tlsInfo, rtt, up: false };
+    return { host, ...tlsInfo, rtt, up: false, resolved: true, status: 'unreachable' };
   }
 }
 
@@ -148,7 +199,27 @@ app.post('/check', async (req, res) => {
   
   // Combine results and sort - mark each result as CN or SAN based on actual certificate
   const allResults = results.map(r => ({ ...r, sans: [], isSAN: !r.isCN }));
-  res.json(allResults);
+  
+  // Calculate summary stats
+  const totalUnique = allResults.length;
+  const reachable = allResults.filter(r => r.up).length;
+  const unresponsive = totalUnique - reachable;
+  
+  // Update metadata with timestamp for this domain
+  metadata[domain] = new Date().toISOString();
+  saveMetadata(metadata);
+  
+  // Return results with summary
+  res.json({
+    summary: {
+      domain,
+      totalUnique,
+      reachable,
+      unresponsive,
+      retrievedAt: metadata[domain]
+    },
+    results: allResults
+  });
 });
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
