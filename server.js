@@ -49,7 +49,7 @@ async function getHostnames(domain) {
     const hostnames = new Map(); // Map hostname to cert info
     const now = new Date();
     
-    for (const entry of res.data) {
+    res.data.forEach(entry => {
       if (entry.not_after && new Date(entry.not_after) > now) {
         // Calculate days until expiration
         let daysUntilExpiration = null;
@@ -60,30 +60,18 @@ async function getHostnames(domain) {
           daysUntilExpiration = Math.floor((expiryDate - now) / (24 * 60 * 60 * 1000));
         }
         
-        // Fetch certificate details to get issuer name
-        let issuer = 'Unknown';
-        try {
-          const certRes = await axios.get(`https://crt.sh/?id=${entry.id}&output=json`);
-          if (certRes.data && certRes.data.issuer) {
-            issuer = certRes.data.issuer;
-          }
-        } catch (err) {
-          console.error(`Error fetching cert details for ID ${entry.id}:`, err);
-        }
-        
         const names = entry.name_value.split(/[\s\n]+/);
         names.forEach(name => {
           const cleaned = name.replace(/\*\./g, '').trim();
           if (cleaned && !hostnames.has(cleaned)) {
             hostnames.set(cleaned, {
               daysUntilExpiration,
-              issuer,
               certFromCrtSh: true
             });
           }
         });
       }
-    }
+    });
     return hostnames;
   } catch (err) {
     console.error(err);
@@ -139,16 +127,10 @@ async function checkHost(host, crtShInfo = {}) {
   const start = Date.now();
   const tlsInfo = await checkTLS(host);
   
-  // If we have issuer from crt.sh and direct TLS didn't get one, use crt.sh issuer
-  if (crtShInfo.issuer && tlsInfo.issuer === 'Unknown') {
-    tlsInfo.issuer = crtShInfo.issuer;
-  }
-  
   // If direct TLS check failed but we have cert info from crt.sh, use that
   if (!tlsInfo.tlsValid && crtShInfo.daysUntilExpiration !== undefined) {
     tlsInfo.tlsValid = true;
     tlsInfo.daysUntilExpiration = crtShInfo.daysUntilExpiration;
-    tlsInfo.issuer = crtShInfo.issuer || tlsInfo.issuer;
   }
   
   // Check if hostname resolves

@@ -26,6 +26,12 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
   if (!domain) return alert('Enter a domain!');
   const tbody = document.querySelector('#results tbody');
   tbody.innerHTML = 'Loading...';
+  
+  // Show progress in summary while loading
+  const summaryDiv = document.getElementById('summary');
+  const statsDiv = document.getElementById('stats');
+  statsDiv.innerHTML = '<strong>Status:</strong> Querying Certificate Transparency (crt.sh)...';
+  summaryDiv.style.display = 'block';
 
   const res = await fetch('/check', {
     method: 'POST',
@@ -36,11 +42,10 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
   const response = await res.json();
   const { summary, results } = response;
   
-  // Display summary
-  const summaryDiv = document.getElementById('summary');
-  const statsDiv = document.getElementById('stats');
-  const metadataDiv = document.getElementById('metadata');
+  // Update status
+  statsDiv.innerHTML = `<strong>Status:</strong> Testing ${summary.totalUnique} hostnames...`;
   
+  // Display summary once complete
   statsDiv.innerHTML = `
     <strong>Summary:</strong> ${summary.totalUnique} unique hostnames detected | 
     ${summary.reachable} reachable | 
