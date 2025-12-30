@@ -116,4 +116,79 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
       });
     });
   });
+  
+  // Add export to CSV functionality
+  document.getElementById('exportCsv').addEventListener('click', () => {
+    const csvData = [];
+    
+    // Add summary header
+    csvData.push(['Summary']);
+    csvData.push(['Domain', summary.domain]);
+    csvData.push(['Total Unique Hostnames', summary.totalUnique]);
+    csvData.push(['Reachable', summary.reachable]);
+    csvData.push(['Unresponsive', summary.unresponsive]);
+    csvData.push(['Retrieved At', new Date(summary.retrievedAt).toLocaleString()]);
+    csvData.push([]); // Empty row for spacing
+    
+    // Add table header
+    csvData.push(['Hostname', 'Status', 'TLS Valid', 'Days Until Expiration', 'Publisher', 'RTT (ms)']);
+    
+    // Add results
+    results.forEach(host => {
+      let status = '';
+      if (host.status === 'not resolved') {
+        status = 'Not Resolved';
+      } else if (host.status === 'unreachable') {
+        status = 'Unreachable';
+      } else {
+        status = host.up ? 'Responding' : 'Down';
+      }
+      
+      let expirationDisplay = '-';
+      if (host.tlsValid && host.daysUntilExpiration !== null) {
+        if (host.daysUntilExpiration === -1) {
+          expirationDisplay = 'EXPIRED';
+        } else {
+          expirationDisplay = `${host.daysUntilExpiration} days`;
+        }
+      } else if (!host.tlsValid) {
+        expirationDisplay = 'No Cert';
+      }
+      
+      const hostname = host.isSAN ? `${host.host} (SAN)` : `${host.host} (CN)`;
+      
+      csvData.push([
+        hostname,
+        status,
+        host.tlsValid ? 'Yes' : 'No',
+        expirationDisplay,
+        host.issuer || 'No Cert',
+        host.rtt || '-'
+      ]);
+    });
+    
+    // Convert to CSV string
+    const csvContent = csvData.map(row => 
+      row.map(cell => {
+        // Escape quotes and wrap in quotes if contains comma, newline, or quote
+        const escaped = String(cell).replace(/"/g, '""');
+        return escaped.includes(',') || escaped.includes('\n') || escaped.includes('"') 
+          ? `"${escaped}"` 
+          : escaped;
+      }).join(',')
+    ).join('\n');
+    
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    const filename = `${summary.domain}-status-${new Date().toISOString().split('T')[0]}.csv`;
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
 });
