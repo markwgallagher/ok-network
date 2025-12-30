@@ -35,10 +35,10 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
   // Display results
   tbody.innerHTML = '';
   results.forEach(host => {
-    // Determine expiration color
+    // Determine expiration color and display
     let expirationDisplay = '-';
     let expirationClass = '';
-    if (host.daysUntilExpiration !== null) {
+    if (host.tlsValid && host.daysUntilExpiration !== null) {
       if (host.daysUntilExpiration === -1) {
         expirationDisplay = 'EXPIRED';
         expirationClass = 'expired';
@@ -49,6 +49,9 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
         expirationDisplay = `${host.daysUntilExpiration} days`;
         expirationClass = 'valid';
       }
+    } else if (!host.tlsValid) {
+      expirationDisplay = 'No Cert';
+      expirationClass = 'expired';
     }
     
     // Format hostname - add designation for CN or SAN
@@ -75,7 +78,7 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
     } else if (host.status === 'unreachable') {
       statusCell.textContent = '⚠️ Unreachable';
     } else {
-      statusCell.textContent = host.up ? '✅ Up' : '❌ Down';
+      statusCell.textContent = host.up ? '✅ Responding' : '❌ Down';
     }
     tr.appendChild(statusCell);
     
@@ -89,7 +92,7 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
     tr.appendChild(expirationCell);
     
     const issuerCell = document.createElement('td');
-    issuerCell.textContent = host.issuer;
+    issuerCell.textContent = host.issuer || 'No Cert';
     tr.appendChild(issuerCell);
     
     const rttCell = document.createElement('td');

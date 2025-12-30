@@ -84,8 +84,11 @@ function checkTLS(host) {
         }
       }
       
-      // Extract issuer (publisher)
-      const issuer = cert.issuer ? cert.issuer.O || cert.issuer.CN || 'Unknown' : 'Unknown';
+      // Extract issuer (publisher) - try multiple fields
+      let issuer = 'Unknown';
+      if (cert.issuer) {
+        issuer = cert.issuer.O || cert.issuer.CN || cert.issuer.OU || 'Unknown';
+      }
       
       // Extract CN from certificate
       const certCN = cert.subject ? cert.subject.CN : null;
