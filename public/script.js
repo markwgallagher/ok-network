@@ -1,3 +1,26 @@
+// Dark mode functionality
+const darkModeToggle = document.getElementById('darkModeToggle');
+const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+
+// Load saved dark mode preference or use system preference
+const savedDarkMode = localStorage.getItem('darkMode');
+if (savedDarkMode !== null) {
+  if (savedDarkMode === 'true') {
+    document.body.classList.add('dark-mode');
+    darkModeToggle.textContent = '☀️';
+  }
+} else if (prefersDarkScheme.matches) {
+  document.body.classList.add('dark-mode');
+  darkModeToggle.textContent = '☀️';
+}
+
+darkModeToggle.addEventListener('click', () => {
+  document.body.classList.toggle('dark-mode');
+  const isDarkMode = document.body.classList.contains('dark-mode');
+  localStorage.setItem('darkMode', isDarkMode);
+  darkModeToggle.textContent = isDarkMode ? '☀️' : '🌙';
+});
+
 document.getElementById('checkBtn').addEventListener('click', async () => {
   const domain = document.getElementById('domain').value;
   if (!domain) return alert('Enter a domain!');
