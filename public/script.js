@@ -256,4 +256,4 @@ function displayResults(summary, results, isCached = false) {
   // Remove any previous listeners and add the new one
   exportBtn.replaceWith(exportBtn.cloneNode(true));
   document.getElementById('exportCsv').addEventListener('click', csvExportHandler);
-});
+}
