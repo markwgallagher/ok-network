@@ -25,12 +25,25 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
   const domain = document.getElementById('domain').value;
   if (!domain) return alert('Enter a domain!');
   const tbody = document.querySelector('#results tbody');
-  tbody.innerHTML = 'Loading...';
+  
+  // Show cached results while loading new data
+  const cacheKey = `ok-network-cache-${domain}`;
+  const cachedData = localStorage.getItem(cacheKey);
+  if (cachedData) {
+    try {
+      const { summary: cachedSummary, results: cachedResults } = JSON.parse(cachedData);
+      displayResults(cachedSummary, cachedResults, true); // true = is cached
+    } catch (e) {
+      tbody.innerHTML = 'Loading...';
+    }
+  } else {
+    tbody.innerHTML = 'Loading...';
+  }
   
   // Show progress in summary while loading
   const summaryDiv = document.getElementById('summary');
   const statsDiv = document.getElementById('stats');
-  statsDiv.innerHTML = '<strong>Status:</strong> Querying Certificate Transparency (crt.sh)...';
+  statsDiv.innerHTML = '<strong>Status:</strong> Querying Certificate Transparency (crt.sh)...';  
   summaryDiv.style.display = 'block';
 
   const res = await fetch('/check', {
@@ -42,17 +55,24 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
   const response = await res.json();
   const { summary, results } = response;
   
-  // Get DOM elements
+  // Cache the new results
+  localStorage.setItem(cacheKey, JSON.stringify({ summary, results }));
+  
+  // Display fresh results (not cached)
+  displayResults(summary, results, false);
+});
+
+function displayResults(summary, results, isCached = false) {
+  const tbody = document.querySelector('#results tbody');
   const metadataDiv = document.getElementById('metadata');
   const lastSearchDiv = document.getElementById('lastSearch');
+  const statsDiv = document.getElementById('stats');
   
   // Show last search info
-  lastSearchDiv.innerHTML = `<strong>Last Search:</strong> ${summary.domain} - ${summary.totalUnique} FQDNs fetched`;
+  const cachedMarker = isCached ? ' (cached)' : '';
+  lastSearchDiv.innerHTML = `<strong>Last Search:</strong> ${summary.domain} - ${summary.totalUnique} FQDNs fetched${cachedMarker}`;
   
-  // Update status
-  statsDiv.innerHTML = `<strong>Status:</strong> Testing ${summary.totalUnique} hostnames...`;
-  
-  // Display summary once complete
+  // Display summary
   statsDiv.innerHTML = `
     <strong>Summary:</strong> ${summary.totalUnique} unique hostnames detected | 
     ${summary.reachable} reachable | 
@@ -65,12 +85,9 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
     <small>Certificate data retrieved from <a href="https://crt.sh" target="_blank">crt.sh</a> on ${formattedDate}</small>
   `;
   
-  summaryDiv.style.display = 'block';
-  
   // Enable export button
   document.getElementById('exportCsv').disabled = false;
   
-  // Display results
   tbody.innerHTML = '';
   results.forEach(host => {
     // Determine expiration color and display
@@ -109,6 +126,11 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
     hostCell.style.whiteSpace = 'nowrap';
     
     tr.appendChild(hostCell);
+    
+    // Add cached class if this is from cache
+    if (isCached) {
+      tr.classList.add('cached-result');
+    }
     
     const statusCell = document.createElement('td');
     if (host.status === 'not resolved') {
@@ -155,8 +177,9 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
     });
   });
   
-  // Add export to CSV functionality
-  document.getElementById('exportCsv').addEventListener('click', () => {
+  // Setup CSV export with current summary and results
+  const exportBtn = document.getElementById('exportCsv');
+  const csvExportHandler = () => {
     const csvData = [];
     
     // Add summary header
@@ -228,5 +251,9 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  });
+  };
+  
+  // Remove any previous listeners and add the new one
+  exportBtn.replaceWith(exportBtn.cloneNode(true));
+  document.getElementById('exportCsv').addEventListener('click', csvExportHandler);
 });

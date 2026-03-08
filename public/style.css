@@ -97,6 +97,21 @@ button:hover {
   text-decoration: underline; 
 }
 
+tr.cached-result {
+  opacity: 0.5;
+  background-color: rgba(128, 128, 128, 0.1);
+}
+
+tr.cached-result td {
+  position: relative;
+}
+
+tr.cached-result td::after {
+  content: ' (cached)';
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+
 #exportCsv { 
   background-color: var(--button-bg); 
   color: white; 
