@@ -122,4 +122,4 @@ const PORT = 3000; // Change this line
 
 ## License
 
-MIT
+GPL v3
