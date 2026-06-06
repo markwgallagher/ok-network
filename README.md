@@ -113,6 +113,23 @@ sudo systemctl start ok-network
 4. Results are cached for instant display on future searches
 5. Export results to CSV if needed
 
+## Screenshot
+
+Below is a screenshot of the OK-Network UI. Save the attached image to the repository at `assets/screenshot.png` so it displays here.
+
+![OK-Network Screenshot](assets/screenshot.png)
+
+To add the screenshot file and commit the change:
+
+```bash
+mkdir -p assets
+# save the screenshot as assets/screenshot.png (from your attachment)
+git add assets/screenshot.png
+git add README.md
+git commit -m "Add UI screenshot to README"
+git push
+```
+
 ## Configuration
 
 Port is hardcoded to `3000`. To change, edit `server.js`:
